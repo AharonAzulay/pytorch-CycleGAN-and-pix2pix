@@ -3,8 +3,36 @@ from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
 from PIL import Image
 import random
-
-
+from skimage.transform import AffineTransform
+import cv2
+import numpy as np
+import torch
+def to_multi_input(A_img,n_inputs,transform):
+    scales = np.linspace(0.999, 1.001, 30)
+    scale = np.random.choice(scales)
+    rots = np.linspace(-1 * (np.pi / 300), np.pi / 300, 30)
+    rot = np.random.choice(rots)
+    shears = np.linspace(-1 * (np.pi / 300), np.pi / 300, 30)
+    shear = np.random.choice(shears)
+    shifts = np.linspace(-1 * 2, 2, 30)
+    shift = np.random.choice(shifts)
+    tform = AffineTransform(scale=scale, rotation=rot, shear=shear, translation=shift)
+    matrix = np.linalg.inv(tform.params)[:2]
+    matrixinv = tform.params[:2]
+    A_img = np.asarray(A_img)
+    A_all = []
+    for n in range(n_inputs):
+        if (len(A_all) == 0):
+            A_img_transformed = cv2.warpAffine(A_img, matrix, (A_img.shape[0], A_img.shape[1]))
+        else:
+            A_img_transformed = cv2.warpAffine(A_img_prev, matrix, (A_img.shape[0], A_img.shape[1]))
+        A_img_prev = A_img_transformed.copy()
+        A_img_transformed = Image.fromarray(A_img_transformed)
+        # A_img_transformed.show()
+        A = transform(A_img_transformed)
+        A_all.append(A)
+    A_all = torch.cat(A_all, 0)
+    return A_all
 class UnalignedDataset(BaseDataset):
     """
     This dataset class can load unaligned/unpaired datasets.
@@ -57,8 +85,17 @@ class UnalignedDataset(BaseDataset):
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
         # apply image transformation
-        A = self.transform_A(A_img)
-        B = self.transform_B(B_img)
+
+
+
+        n_inputs = int(self.opt.input_nc/3)
+
+        A = to_multi_input(A_img,n_inputs,self.transform_A)
+        B = to_multi_input(B_img,n_inputs,self.transform_B)
+
+
+        # A = self.transform_A(A_img)
+        # B = self.transform_B(B_img)
 
         return {'A': A, 'B': B, 'A_paths': A_path, 'B_paths': B_path}
 

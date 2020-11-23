@@ -196,6 +196,28 @@ class BaseModel(ABC):
                 # patch InstanceNorm checkpoints prior to 0.4
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
+
+
+
+                if (self.opt.input_nc > 3):
+                    # w0 = state_dict["model1.0.weight"][0]
+                    n = int(self.opt.input_nc/3)
+                    state_dict["model.1.weight"] = (state_dict["model.1.weight"].repeat(1,n,1,1))/n
+                    # w1 = state_dict["model1.0.weight"][0,:,0]
+                    # w2 = state_dict["model1.0.weight"][0,:,1]
+                    # w3 = state_dict["model1.0.weight"][0,:,2]
+                    # print(torch.allclose(w0,w1))
+                    # print(torch.allclose(w0,w2))
+                    # print(torch.allclose(w0,w3))
+
+                    # state_dict["model1.2.weight"] = state_dict["model1.2.weight"].unsqueeze(2)
+                    # state_dict["model_class.0.weight"] = state_dict["model_class.0.weight"].repeat(self.opt.n_frames, 1, 1, 1)
+                    # state_dict["model_class.0.bias"] = state_dict["model_class.0.bias"].repeat(self.opt.n_frames)
+                    state_dict["model.26.weight"] = state_dict["model.26.weight"].repeat(n, 1, 1, 1)
+                    state_dict["model.26.bias"] = state_dict["model.26.bias"].repeat(n)
+
+
+
                 net.load_state_dict(state_dict)
 
     def print_networks(self, verbose):
